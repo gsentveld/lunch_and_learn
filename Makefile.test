@@ -1,4 +1,4 @@
-.PHONY: clean 
+.PHONY: clean data lint requirements sync_data_to_s3 sync_data_from_s3
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -25,7 +25,20 @@ PROCESSED_DATA_DIR=$(PROJECT_DIR)/data/processed
 
 ZIP_FILES=cancerxx.zip familyxx.zip fmlydisb.zip funcdisb.zip househld.zip injpoiep.zip paradata.zip personsx.zip samadult.zip samchild.zip
 
+## Get the zipfiles from the CDC website
 SAVED_ZIP_FILES=$(addprefix $(EXTERNAL_DATA_DIR)/, $(ZIP_FILES))
+
+get_files:
+	for i in $(SAVED_ZIP_FILES); do \
+		fn=`basename $$i`; \
+		url="$(BASE_URL)$$fn"; \
+		echo $$url; \
+		wget -O $$i $$url; \
+	done
+
+*.zip:
+	url=$(BASE_URL)`basename $<`
+	wget -O $< $(url)
 
 CSV_FILES=$(RAW_DATA_DIR)/cancerxx.csv \
 	$(RAW_DATA_DIR)/familyxx.csv \
@@ -44,25 +57,23 @@ CSV_FILES=$(RAW_DATA_DIR)/cancerxx.csv \
 #################################################################################
 
 ## Install Python Dependencies
-requirements: test_environment requirements.txt
+requirements: test_environment
 	pip install -r requirements.txt
-	touch requirements
 
 ## Get the zipfiles from the CDC website
-$(SAVED_ZIP_FILES): notebooks/Get_zip_files.ipynb
-	jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute notebooks/Get_zip_files.ipynb
+les: ZIP_FILES
+	wget -O $(EXTERNAL_DATA_DIR)/$? $(BASE_URL)/$?	
 
-$(CSV_FILES): $(SAVED_ZIP_FILES) notebooks/Unzip_Files_Keep_CSV_Files.ipynb
-	jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute notebooks/Unzip_Files_Keep_CSV_Files.ipynb
+## Unzip any files in the external directory into the raw directory
+unzip_files: CSV_FILES
 
 ## Make Dataset
-data: requirements $(CSV_FILES) 
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py $(INTERIM_DATA_DIR) $(PROCESSED_DATA_DIR)
+data: requirements unzip_files
+	$(PYTHON_INTERPRETER) src/data/make_dataset.py
 
 ## Delete all compiled Python files
 clean:
 	find . -name "*.pyc" -exec rm {} \;
-	rm requirements test_environment
 
 
 ## Set up python interpreter environment
@@ -84,9 +95,8 @@ else
 endif
 
 ## Test python environment is setup correctly
-test_environment: test_environment.py
+test_environment:
 	$(PYTHON_INTERPRETER) test_environment.py
-	touch test_environment
 
 #################################################################################
 # PROJECT RULES                                                                 #
