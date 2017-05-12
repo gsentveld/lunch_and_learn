@@ -50,13 +50,17 @@ requirements: test_environment requirements.txt
 
 ## Get the zipfiles from the CDC website
 $(SAVED_ZIP_FILES): notebooks/Get_zip_files.ipynb
-	jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute notebooks/Get_zip_files.ipynb
+	mkdir -p $(EXTERNAL_DATA_DIR)
+	jupyter nbconvert --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3 --to slides --execute notebooks/Get_zip_files.ipynb
 
+## Get the CSV files extracted from the zipfiles 
 $(CSV_FILES): $(SAVED_ZIP_FILES) notebooks/Unzip_Files_Keep_CSV_Files.ipynb
-	jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute notebooks/Unzip_Files_Keep_CSV_Files.ipynb
+	mkdir -p $(RAW_DATA_DIR)
+	jupyter nbconvert --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3 --execute notebooks/Unzip_Files_Keep_CSV_Files.ipynb
 
 ## Make Dataset
 data: requirements $(CSV_FILES) 
+	mkdir -p $(INTERIM_DATA_DIR) $(PROCESSED_DATA_DIR)
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py $(INTERIM_DATA_DIR) $(PROCESSED_DATA_DIR)
 
 ## Delete all compiled Python files
