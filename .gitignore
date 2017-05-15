@@ -73,3 +73,5 @@ target/
 /data/
 requirements
 test_environment
+notebooks/reveal.js/
+*.slides.html
